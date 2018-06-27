@@ -1,0 +1,398 @@
+#### ################################################
+############# WEBPAGE SCRAPER TEMPLATE ##############
+#### this isn't very sophisticated at the moment ####
+#### you need to set up a txt file with 30 URLs  ####
+#### and it reads them in and scrapes 1 by 1,    ####
+#### using rvest. You need to set the element    ####
+#### ################################################
+
+library(rvest)
+library(xml2)
+library(stringr)
+
+
+# ######## SET UP THE VARIABLES - YOU NEED TO INPUT THE SOURCE FILES ########### #
+
+#set the text file where the URLs come from. Needs to be a txt file, 1 URL per line, 30 max
+pageURLs <- readLines("enter the name of the file of URLs here")
+
+#set text file to output text to. Write the address/name of the outfle file.
+outputTextFile <- "enter the name of your output txt file here"
+
+#set the html_nodes page element to be scraped 
+pageElement <- "p"
+##### HELP WITH RVEST html_nodes() ### html_nodes(".class") ### html_nodes("#id")
+##### html_nodes(xpath="xpath") ### html_attrs() ### html_table(): turns HTML tables into data frames
+##### html_text(): strips the HTML tags and extracts only the text
+
+
+#### Set page urls (this reads the txt file you set abve)
+page1 <- pageURLs[[1]]
+page2 <- pageURLs[[2]]
+page3 <- pageURLs[[3]]
+page4 <- pageURLs[[4]]
+page5 <- pageURLs[[5]]
+page6 <- pageURLs[[6]]
+page7 <- pageURLs[[7]]
+page8 <- pageURLs[[8]]
+page9 <- pageURLs[[9]]
+page10 <- pageURLs[[10]]
+page11 <- pageURLs[[11]]
+page12 <- pageURLs[[12]]
+page13 <- pageURLs[[13]]
+page14 <- pageURLs[[14]]
+page15 <- pageURLs[[15]]
+page16 <- pageURLs[[16]]
+page17 <- pageURLs[[17]]
+page18 <- pageURLs[[18]]
+page19 <- pageURLs[[19]]
+page20 <- pageURLs[[20]]
+page21 <- pageURLs[[21]]
+page22 <- pageURLs[[22]]
+page23 <- pageURLs[[23]]
+page24 <- pageURLs[[24]]
+page25 <- pageURLs[[25]]
+page26 <- pageURLs[[26]]
+page27 <- pageURLs[[27]]
+page28 <- pageURLs[[28]]
+page29 <- pageURLs[[29]]
+page30 <- pageURLs[[30]]
+
+#Scrape scrape1
+scrape1 <- read_html(page1)
+scrape1 <- scrape1 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape2
+scrape2 <- read_html(page2)
+scrape2 <- scrape2 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape3
+scrape3 <- read_html(page3)
+scrape3 <- scrape3 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape4
+scrape4 <- read_html(page4)
+scrape4 <- scrape4 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape5
+scrape5 <- read_html(page5)
+scrape5 <- scrape5 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape6
+scrape6 <- read_html(page6)
+scrape6 <- scrape6 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape7
+scrape7 <- read_html(page7)
+scrape7 <- scrape7 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape8
+scrape8 <- read_html(page8)
+scrape8 <- scrape8 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape9
+scrape9 <- read_html(page9)
+scrape9 <- scrape9 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape10
+scrape10 <- read_html(page10)
+scrape10 <- scrape10 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape11
+scrape11 <- read_html(page11)
+scrape11 <- scrape11 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape12
+scrape12 <- read_html(page12)
+scrape12 <- scrape12 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape13
+scrape13 <- read_html(page13)
+scrape13 <- scrape13 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape14
+scrape14 <- read_html(page14)
+scrape14 <- scrape14 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape15
+scrape15 <- read_html(page15)
+scrape15 <- scrape15 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape16
+scrape16 <- read_html(page16)
+scrape16 <- scrape16 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape17
+scrape17 <- read_html(page17)
+scrape17 <- scrape17 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape18
+scrape18 <- read_html(page18)
+scrape18 <- scrape18 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape19
+scrape19 <- read_html(page19)
+scrape19 <- scrape19 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape20
+scrape20 <- read_html(page20)
+scrape20 <- scrape20 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape21
+scrape21 <- read_html(page21)
+scrape21 <- scrape21 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape22
+scrape22 <- read_html(page22)
+scrape22 <- scrape22 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape23
+scrape23 <- read_html(page23)
+scrape23 <- scrape23 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape24
+scrape24 <- read_html(page24)
+scrape24 <- scrape24 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape25
+scrape25 <- read_html(page25)
+scrape25 <- scrape25 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape26
+scrape26 <- read_html(page26)
+scrape26 <- scrape26 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape27
+scrape27 <- read_html(page27)
+scrape27 <- scrape27 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape28
+scrape28 <- read_html(page28)
+scrape28 <- scrape28 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape29
+scrape29 <- read_html(page29)
+scrape29 <- scrape29 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Scrape scrape30
+scrape30 <- read_html(page30)
+scrape30 <- scrape30 %>% 
+      html_nodes(pageElement) %>%  #choose where to take from
+      html_text() %>%  #take the text
+      str_replace_all("\n", " ") %>%
+      str_replace_all("\t", " ") %>%
+      str_trim(side = c("both")) %>%
+      str_squish() %>%
+      unlist()  #convert to a vector
+
+#Combine all together
+all_scrapes <- c(scrape1, scrape2, scrape3, scrape4, scrape5, scrape6, scrape7, scrape8, 
+                scrape9,scrape10, scrape11, scrape12, scrape13, scrape14, scrape15, scrape16, 
+                scrape17, scrape18, scrape19, scrape20, scrape21, scrape22, scrape23, scrape24, 
+                scrape25, scrape26, scrape27, scrape28, scrape29, scrape30)
+
+#Output the text to a txt file
+writeLines(all_scrapes, outputTextFile)
