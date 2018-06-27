@@ -17,7 +17,7 @@ library(stringr)
 
 pageURLs <- readLines("enter the name of the file of URLs here")
 
-#set text file to output text to. Write the address/name of the outfle file.
+#set text file to output text to. Write the address/name of the output file.
 
 outputTextFile <- "enter the name of your output txt file here"
 
