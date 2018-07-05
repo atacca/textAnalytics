@@ -3,7 +3,6 @@ Place to dump my R code for text analytics stuff. Blurb for each item below.
 
 
 #### TEMPLATE WEBPAGE SCRAPER ####
-This is an unsophisticated webpage scraper using rvest. At the moment it simply reads in 30 URLs from a txt file that you need to set up beforehand, then scrapes those pages based on the rvest::html_nodes() you've set—you'll need to inspect the webpages beforehand to determine the most applicable node for that site.
+This is a straightforward scraper, set as a function and looped. Required is a list of URLs and a node common between them. Writing to the output file is set as append, so if there isn't one common node, you can iterate through 2+ times.
 
-It's constrained to 30 URLs, no more no less—if you're doing multiple sites, if you don't use all the 30 URLs, it'll be using the values from the previous iteration/webpage assigned to that variable, which adds duplicate data. You could simply cut out excess pages you don't need, or add extras, but I'll need to change this into a loop that iterates through each supplied URL (I just need to work out how to do that).
-
+I use this to scrape relevant pages of a website, in order to build up a corpus of texts from a particular sector.
