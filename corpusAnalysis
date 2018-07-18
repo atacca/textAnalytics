@@ -1,0 +1,285 @@
+##### #####################################
+##### LEGAL ENGLISH - TEXT ANALYTICS ######
+#####            TIDYTEXT            ######
+##### #####################################
+
+library(tidyverse)
+library(tidytext)
+library(readtext)
+library(magrittr)
+library(broom)
+library(tokenizers)
+
+
+##### ######################################
+##### Let's get some useful variables ready
+##### ######################################
+
+### this is the default stopwords list
+default_stopwords <- unnest_tokens(read.csv("default_stopwords.csv",
+                        stringsAsFactors = FALSE), word, word) %>%
+                      as_tibble()
+
+### this is our custom stopwords list
+legalStopwords <- unnest_tokens(read.csv("legalEnglish_stopwords.csv",
+                                stringsAsFactors = FALSE), word, word) %>%
+                  as_tibble()
+
+# and we'll combine our default stopwords with the custom ones
+stopwords_all <- bind_rows(default_stopwords, legalStopwords)
+
+
+### We'll also make a file for the outputs to be put into (via sink)
+legalOutputs <- file("legalEnglish_outputs.txt", open = "w")
+
+
+##### ############################
+##### ############################
+##### OK, it's corpus-making time
+##### ############################
+##### ############################
+
+### let's grab the texts 
+legalTexts <- readtext("sources/",
+                        docvarsfrom = "filenames",
+                        docvarnames = c("Institution", "DocName",
+                          "Type", "Country", "Year"),
+                        dvsep = "_")
+
+### and create 3 versions in tidy format - all words, no custom stops, no stops
+
+## 1st is the corpus in tidy format, with no words removed
+legalTidy_all <- legalTexts %>%
+  group_by(DocName) %>%
+  mutate(linenumber = row_number()) %>%
+  ungroup() %>%
+  unnest_tokens(word, text)  # word is the name of the output column
+
+## 2nd is the corpus in tody format, with custom words removed
+legalTidy_noCustom <- legalTidy_all %>%
+  anti_join(legalStopwords, by = "word")
+
+## 3rd is the corpus in tidy format, with all stops removed (custom + general)
+legalTidy <- legalTidy_all %>%
+  anti_join(stopwords_all, by = "word")
+
+
+
+
+##### ###########################
+##### WORD FREQUENCIES & COUNTS
+##### ###########################
+
+## Let's start with a count of the documents in the corpus
+legalDocCount <- legalTexts %>%
+  count(DocName) %>%
+  summarize(total = sum(n))
+
+
+## then get the top word freqs (no stops) & make it a DF so we can choose how many rows
+legalFreqs <- count(legalTidy, word, sort = TRUE) %>%
+              ungroup() %>%
+              data.frame()
+
+# and with just the custom words removed
+legalFreqs_noCustom <- count(legalTidy_noCustom, word, sort = TRUE) %>%
+                      ungroup() %>%
+                      data.frame()
+
+# and a freq count of words by document ##### CLEAN THIS UP WITH PIPING #####
+legalFreqs_bydoc <- legalTidy %>%
+  count(DocName, word, sort = TRUE)
+
+legalWordCountByDoc <- legalFreqs_bydoc %>%
+                    group_by(DocName) %>%
+                    summarize(total = sum(n))
+
+legalFreqs_bydoc2 <- left_join(legalFreqs_bydoc, legalWordCountByDoc)
+
+
+
+### ZIPFs LAW - Freq is inversely proportional to its rank
+legalZipf <- legalFreqs_bydoc2 %>%
+  group_by(DocName) %>%
+  mutate(rank = row_number(),
+                `term_freq` = n/total)
+
+
+
+## we can have a look at specific terms that show up w/ str_detect
+## THIS HANGS RSTUDIO, NEED TO FIND OUT WHY
+#legalTexts %>%
+#  filter(str_detect(text, "ar")) %>%
+#  select(text)
+
+
+
+##### ###########################
+##### N GRAMS
+##### ###########################
+
+# let's tokenise by ngrams
+legalBigrams <- legalTexts %>%
+  unnest_tokens(bigram, text, token = "ngrams", n = 2)
+
+
+# ok, how about the most common bigrams?
+legalBigrams %>%
+  count(bigram, sort = TRUE)
+
+# now we'll put the words into separate columns, so we can filter
+legalBigrams_sep <- legalBigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ")
+
+legalBigrams_filtered <- legalBigrams_sep %>%
+  filter(!word1 %in% stopwords_all$word) %>%
+  filter(!word2 %in% stopwords_all$word)
+
+legalBigrams_filteredcount <- legalBigrams_filtered %>%
+  count(word1, word2, sort = TRUE)
+
+# ok, unite() is the opposite of separate()
+legalBigrams_united <- legalBigrams_filtered %>%
+  unite(bigram, word1, word2, sep = " ")
+legalBigrams_united
+
+# filter bigrams with a particular word
+legalBigrams_filtered %>%
+  filter(word2 == "rop") %>%
+  count(DocName, word1, sort = TRUE)
+legalBigrams_filteredcount
+
+
+### IT'S TRIGRAM TIME, BABY
+
+# aight, let's get this party started
+legalTrigrams <- legalTexts %>%
+  unnest_tokens(trigram, text, token = "ngrams", n = 3) %>%
+  separate(trigram, c("word1", "word2", "word3"), sep = " ") %>%
+  filter(!word1 %in% stopwords_all$word,
+          !word2 %in% stopwords_all$word,
+          !word3 %in% stopwords_all$word) %>%
+  count(word1, word2, word3, sort = TRUE)
+
+
+### TF-IDF - UNIGRAMS, BIGRAMS, & BEYOND ###
+
+# let's start with the tf-idf for all unigrams
+legal_tfidf <- legalFreqs_bydoc2 %>%
+  bind_tf_idf(word, DocName, n)
+
+
+# and look at the unigrams with a high score
+legal_tfidf_high <- legal_tfidf %>%
+  select(-total) %>%
+  arrange(desc(tf_idf))
+
+
+# moving on to bigrams now. Let's start with the top ones
+legalBigrams_tfidf <- legalBigrams_united %>%
+  count(DocName, bigram) %>%
+  bind_tf_idf(bigram, DocName, n) %>%
+  arrange(desc(tf_idf))
+
+
+# ok, now the top trigrams
+legalTrigrams_tfidf <- legalTexts %>%
+  unnest_tokens(trigram, text, token = "ngrams", n = 3) %>%
+  separate(trigram, c("word1", "word2", "word3"), sep = " ") %>%
+  filter(!word1 %in% stopwords_all$word,
+          !word2 %in% stopwords_all$word,
+          !word3 %in% stopwords_all$word) %>%
+  count(word1, word2, word3, sort = TRUE)
+
+
+
+##### ###########################
+##### OUTPUT TO FILE
+##### ###########################
+
+sink(file = legalOutputs)
+cat("Outputs from analysis of the Legal English Corpus\n\n")
+cat("\n", "Number of documents in the corpus\n\n")
+legalDocCount
+cat("\n", "Word Count for the Corpus - no word filtering\n",
+  "this is the complete word count, and includes abbreviations, symbols, etc\n\n")
+count(legalTidy_all)
+cat("\n", "Word Count - custom stop words removed\n",
+  "unhelpful words are removed, such as abbreviations, symbols, country names, etc\n\n")
+count(legalTidy_noCustom)
+cat("\n", "Word Count - custom and common words removed\n",
+  "common words are also removed, such as articles, prepositions, and pronouns\n\n")
+count(legalTidy)
+cat("\n", "Sum of custom and common words\n\n")
+count(legalTidy_all) - count(legalTidy)
+cat("\n", "NOTE: Analyses are done with either all stop words removed (custom & common), or\n
+  with only the custom removed, depending on what the end goal is. E.g. Top 50 frequencies\n
+  have both removed, because we want to see the most important words for the corpus/industry,\n
+  while top bigrams, trigrams, and longer language only have custom words removed, because\n
+  the 'common' words can play an integral role in those.\n\n")
+cat("\n", "Top 50 Word Frequencies for the corpus (stop words removed)\n\n")
+legalFreqs[1:50,]
+cat("\n", "For Comparison: Top 50 Word Frequencies (common words included)\n\n")
+cat("\n", "Zipf's Law\n\n")
+legalZipf
+cat("\n", "Top Bigrams\n\n")
+legalBigrams
+cat("\n", "Top Trigrams\n\n")
+legalTrigrams
+cat("\n", "Term Frequency - Inverse Document Frequency (tf-idf)\n\n")
+legal_tfidf
+cat("\n", "Highest Scoring Words by tf-idf\n\n")
+legal_tfidf_high
+cat("\n", "Highest Scoring Bigrams by tf-idf\n\n")
+legalBigrams_tfidf
+cat("\n", "Highest Scoring Trigrams by tf-idf\n\n")
+legalTrigrams_tfidf
+sink()
+
+
+
+
+##### ###########################
+##### PLOTTING
+##### ###########################
+
+# let's start with plotting top word freqs by doc (bin sets the # words)
+ggplot(legalFreqs_bydoc2, aes(n/total, fill = DocName)) +
+  geom_histogram(show.legend = FALSE, bins = 50) +
+  facet_wrap(~DocName, ncol = 2, scales = "free_y")
+
+
+# let's plot the Zipf ranks w/ a log scale (see if rank & freq are related)
+legalZipf %>%
+  ggplot(aes(rank, `term_freq`, color = DocName)) +
+  geom_line(size = 0.9, alpha = 0.6, show.legend = FALSE) +
+  scale_x_log10() +
+  scale_y_log10()
+
+# Power Law. Let's check the middle section & plot
+legalSubset <- legalZipf %>%
+  filter(rank < 500, rank > 10)
+
+lm(log10(`term_freq`) ~ log10(rank), data = legalSubset)
+
+legalZipf %>%
+  ggplot(aes(rank, `term_freq`, color = DocName)) +
+  geom_abline(intercept = -0.62, slope = -1.1, color = "gray50", linetype = 2) +
+  geom_line(size = 0.9, alpha = 0.6, show.legend = FALSE) +
+  scale_x_log10() +
+  scale_y_log10()
+
+
+# words with a high tf-idf score
+legal_tfidf_high %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(word = factor(word, levels = rev(unique(word)))) %>%
+  group_by(DocName) %>%
+  top_n(5) %>%
+  ungroup %>%
+  ggplot(aes(word, tf_idf, fill = DocName)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "tf-idf") +
+  facet_wrap(~DocName, ncol = 1, scales = "free") +
+  coord_flip()
+
