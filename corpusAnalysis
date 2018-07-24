@@ -267,10 +267,8 @@ legalCorpus <- corpus(legalTexts)
 
 legal_kwic_list <- list()
 i = 1
-
 while (i <= 10) {
-
-  kwic_results <- kwic(legalCorpus, legal_tfidf_high$word[i], valuetype = "fixed")
+  kwic_results <- kwic(legalCorpus, legal_tfidf_high$word[i], window = 10, valuetype = "fixed")
   kwic_results$i <- i
   
   legal_kwic_list[[i]] <- kwic_results
@@ -279,7 +277,13 @@ while (i <= 10) {
 
 legal_kwic_results <- do.call(rbind, legal_kwic_list)
 
+# we can clean up the kwic results for printing by combining the kwic sentences & trim the df...
+legal_kwic_resultsOutput <- data.frame(legal_kwic_results)
 
+legal_kwic_resultsOutput$sentences <- paste(legal_kwic_results$pre, legal_kwic_results$keyword,       
+                                        legal_kwic_results$post)
+
+legal_kwic_resultsOutput <- legal_kwic_resultsOutput[, -c(2:7)]
 
 
 
