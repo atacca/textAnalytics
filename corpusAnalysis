@@ -291,7 +291,7 @@ legal_kwic_resultsOutput <- legal_kwic_resultsOutput[, -c(2:7)]
 ##### OUTPUT TO FILE
 ##### ###########################
 
-## create the file
+## create the first file for output
 legalOutputs <- file("legalEnglish_outputs.txt", open = "w")
 
 # and start the sink
@@ -341,6 +341,12 @@ legal_kwic_results
 sink()
 
 
+## and another just for the kwic sentences
+legalOutputs_kwic <- file("LegalEnglish_kwic_sentences.txt, open = w")
+
+sink(file = legalOutputs_kwic, type = "output")
+legal_kwic_resultsOutput
+sink()
 
 
 ##### ###########################
