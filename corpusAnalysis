@@ -415,8 +415,9 @@ cat("\n\n\n", "Highest Scoring Trigrams by tf-idf\n\n")
 legalTrigrams_tfidf
 cat("\n\n\n", "Key Words in Context (kwic). 
   \n\n These sentences show the top 10 tf-idf words in context. They are useful in selecting\n
-  the words as they are used in context.\n\n")
-legal_kwic_results
+  the words as they are used in context.\n\n
+  The kwic sentences can be found in another file, which should be located with this one,\n
+  called 'legalEnglish_kwic_sentences.txt\n\n")
 sink()
 
 
