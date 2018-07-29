@@ -10,20 +10,24 @@ library(magrittr)
 library(broom)
 library(tokenizers)
 library(quanteda)
-
-
+# library(rJava)
+library(data.table)
+library(udpipe)
+library(pdftools)
 
 ##### ######################################
 ##### Let's do the pre-lim stuff..
 ##### ######################################
 
-### starting with getting the texts... 
-legalTexts <- readtext("sources/",
+### set the location of the source files for the corpus
+legalSourcesLocation <- "sources/"
+
+### I guess we should also get the texts, with quanteda
+legalTexts <- readtext(legalSourcesLocation,
                         docvarsfrom = "filenames",
                         docvarnames = c("Institution", "DocName",
                           "Type", "Country", "Year"),
                         dvsep = "_")
-
 
 ### this is the default stopwords list
 default_stopwords <- unnest_tokens(read.csv("default_stopwords.csv",
@@ -43,30 +47,43 @@ stopwords_all <- bind_rows(default_stopwords, legalStopwords)
 ### down to in front of the sink command. This is because it opens the connection on creation
 
 
-
-##### ################################
-##### ################################
-##### OK, it's corpus-making time
-##### ################################
-##### ################################
-
+##### ################################################################
+##### OK, IT'S CORPUS MAKING TIME
+##### some of these might not be used and will be removed in time
+##### some might be used further down , it's a wip atm
+##### ################################################################
 
 ### We'll create 3 versions in tidy format - all words, no custom stops, & no all stops
 
-## 1st is the corpus in tidy format, with no words removed
+# 1st TIDY is the corpus in tidy format, with no words removed
 legalTidy_all <- legalTexts %>%
   group_by(DocName) %>%
   mutate(linenumber = row_number()) %>%
   ungroup() %>%
   unnest_tokens(word, text)  # word is the name of the output column
 
-## 2nd is the corpus in tody format, with custom words removed
+# 2nd TIDY is the corpus in tidy format, with custom words removed
 legalTidy_noCustom <- legalTidy_all %>%
   anti_join(legalStopwords, by = "word")
 
-## 3rd is the corpus in tidy format, with all stops removed (custom + general)
+# 3rd TIDY is the corpus in tidy format, with all stops removed (custom + general)
 legalTidy <- legalTidy_all %>%
   anti_join(stopwords_all, by = "word")
+
+#### PDFTOOLS ok, technically not a corpus, but all the texts extracted using pdftools
+legalCorpus_pdftools <- data.frame("source_file" = c(), "text" = c())
+
+for (i in 1:length(legalSourcesLocation_list)) {
+  print(i)
+    pdf_text(paste("sources/", legalSourcesLocation_list[i], sep = "")) %>%
+    strsplit("\n") -> document_text
+  data.frame("source_file" = gsub(x = legalSourcesLocation_list[i], pattern = ".pdf", replacement = ""),
+    "text" = document_text, stringsAsFactors = FALSE) -> document
+  
+  colnames(document) <- c("source_file", "text")
+  legalCorpus_pdftools <- rbind(legalCorpus_pdftools, document)
+}
+
 
 
 ##### ###########################
@@ -213,6 +230,7 @@ legalTrigrams_filteredCount <- legalTrigrams_filteredCount %>%
 #  count(word1, word2, word3, sort = TRUE)
 
 
+
 ##### #####################
 ##### TF-IDF...IDK EITHER
 ##### #####################
@@ -256,19 +274,18 @@ legalTrigrams_tfidf <- legalTexts %>%
   count(word1, word2, word3, sort = TRUE)
 
 
+
+
 ##### #############################
 ##### KWIC - NOW WE"RE WARMING UP
 ##### #############################
-
-# First is to convert the texts into a quanteda corpus object
-legalCorpus <- corpus(legalTexts)
 
 #### Function to loop through kwic based on highest tf-idf tokens, output to list then bind
 
 legal_kwic_list <- list()
 i = 1
 while (i <= 10) {
-  kwic_results <- kwic(legalCorpus, legal_tfidf_high$word[i], window = 10, valuetype = "fixed")
+  kwic_results <- kwic(legalCorpus_quanteda, legal_tfidf_high$word[i], window = 10, valuetype = "fixed")
   kwic_results$i <- i
   
   legal_kwic_list[[i]] <- kwic_results
@@ -283,13 +300,65 @@ legal_kwic_resultsOutput <- data.frame(legal_kwic_results)
 legal_kwic_resultsOutput$sentences <- paste(legal_kwic_results$pre, legal_kwic_results$keyword,       
                                         legal_kwic_results$post)
 
+legal_kwic_resultsOutput$docname <- substr(legal_kwic_resultsOutput$docname, 1, 20)
+
 legal_kwic_resultsOutput <- legal_kwic_resultsOutput[, -c(2:7)]
 
 
 
-##### ###########################
-##### OUTPUT TO FILE
-##### ###########################
+
+##### ###########################################
+##### DID SOMEONE SAY POS? that's just rude..
+##### using udpipe for this
+##### ###########################################
+
+### download the English model for udpipe (only needs to be done once - remove #s if needed)
+# dl_udpipe_engModel <- udpipe_download_model(language = "english")
+# dl_udpipe_engModel
+# str(dl_udpipe_engModel)
+
+## now set a variable for the english model (gonna use for POS tagging and whatnot)
+udmodel_eng <- udpipe_load_model(file = "english-ud-2.0-170801.udpipe")
+
+##### LOOP THROUGH THE FILES, ANNOTATING EACH ONE AND OUTPUTTING TO A DATAFRAME #####
+# what the frick? shouldn't there be a much better way than doing that?
+# well, sure. But I was having all sorts of trouble getting any corpus object to
+# actually work (and to get any POS tagging function/package to work on this box)
+# so I'm looping through files 1 at a time them binding them into a df. It may not
+# be pretty, or efficient, but it works. I'll need to come back and make it better
+
+### SET GLOBALS
+# make a list to add the results dataframes into
+legal_annotated_list <- list()
+# the list of files to be used for the annotator
+legalSourcesList <- list.files(path = legalSourcesLocation)
+# counter (I don't think I actually need this? Simply have to try the below without it and see. To do.)
+i = 1
+
+### LOOP START
+for (i in 1:length(legalSourcesList)) {
+# set the full path of an individual file within the list
+  legalFile <- c(paste(legalSourcesLocation, legalSourcesList[i], sep = ""))
+  txt <- pdf_text(legalFile)
+# annotate the file
+  x = udpipe_annotate(udmodel_eng, x = txt)
+  x = as.data.frame(x)
+# append the resultant dataframe
+  legal_annotated_list[[i]] <- x
+# increment counter
+  i <- i + 1
+### LOOP END
+}
+
+### MAKE FINAL DF FROM RESULTS LIST (it's large and slow, but works)
+legalAnnotated_pos <- do.call(rbind, legal_annotated_list)
+
+
+##### ######################################################
+##### ######################################################
+##### OUTPUTs TO FILE  ######################################
+##### ######################################################
+##### ######################################################
 
 ## create the first file for output
 legalOutputs <- file("legalEnglish_outputs.txt", open = "w")
@@ -315,6 +384,9 @@ cat("\n\n\n", "NOTE: Analyses are done with either all stop words removed (custo
   have both removed, because we want to see the most important words for the corpus/industry,\n
   while top bigrams, trigrams, and longer language only have custom words removed, because\n
   the 'common' words can play an integral role in those.\n\n")
+cat("\n\n\n", "Part of Speech counts for the corpus\n
+    for a list of what these mean, see: http://universaldependencies.org/u/pos/index.html\n\n")
+table(legalAnnotated_pos$upos)
 cat("\n\n\n", "Top 50 Word Frequencies for the corpus (stop words removed)\n\n")
 legalFreqs[1:50,]
 cat("\n\n\n", "For Comparison: Top 50 Word Frequencies (common words included)\n\n")
@@ -341,12 +413,10 @@ legal_kwic_results
 sink()
 
 
-## and another just for the kwic sentences
-legalOutputs_kwic <- file("LegalEnglish_kwic_sentences.txt, open = w")
+## for the kwic sentences (based on highest tf-idf), we'll use write.table instead
+legalOutputs_kwic <- file("LegalEnglish_kwic_sentences.txt", open = "w")
 
-sink(file = legalOutputs_kwic, type = "output")
-legal_kwic_resultsOutput
-sink()
+write.table(legal_kwic_resultsOutput, file = legalOutputs_kwic, col.names = FALSE)
 
 
 ##### ###########################
@@ -354,7 +424,7 @@ sink()
 ##### ###########################
 
 #first, let's look at word count by doc
-plot_wordCount_Type <- summary(legalCorpus)
+plot_wordCount_Type <- summary(legalCorpus_quanteda)
 
 ggplot(data = plot_wordCount_Type, aes(x = Type, y = Tokens, group = 1)) +
 geom_line() +
