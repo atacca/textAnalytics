@@ -1,7 +1,14 @@
-##### #####################################
-##### LEGAL ENGLISH - TEXT ANALYTICS ######
-#####            TIDYTEXT            ######
-##### #####################################
+##### ########################################################
+#####               CORPUS ANALYSIS                     ######
+#####         - it's a work in progress -               ######
+##### The goal is to have all the code ready to go.     ######
+##### You'll see the variable naming is specific,       ######
+##### that's in case if you want to do a corpus-corpus  ######
+##### comparison, you won't find that all your global   ######
+##### variables are named the same. When changing to    ######
+##### a new corpus, just run a find-replace on the      ######
+##### specific name (e.g. "legal-") to the new one.     ######
+##### ########################################################
 
 library(tidyverse)
 library(tidytext)
