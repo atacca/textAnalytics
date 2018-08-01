@@ -17,10 +17,10 @@ library(magrittr)
 library(broom)
 library(tokenizers)
 library(quanteda)
-# library(rJava)
-library(data.table)
+# library(data.table)
 library(udpipe)
 library(pdftools)
+library(lattice)
 
 ##### ######################################
 ##### Let's do the pre-lim stuff..
@@ -29,6 +29,8 @@ library(pdftools)
 ### set the location of the source files for the corpus
 legalSourcesLocation <- "sources/"
 
+# the list of files (used in several loops to grab the file names 1 by 1)
+legalSourcesList <- list.files(path = legalSourcesLocation)
 ### I guess we should also get the texts, with quanteda
 legalTexts <- readtext(legalSourcesLocation,
                         docvarsfrom = "filenames",
@@ -77,21 +79,8 @@ legalTidy_noCustom <- legalTidy_all %>%
 legalTidy <- legalTidy_all %>%
   anti_join(stopwords_all, by = "word")
 
-#### PDFTOOLS ok, technically not a corpus, but all the texts extracted using pdftools
-legalCorpus_pdftools <- data.frame("source_file" = c(), "text" = c())
-
-for (i in 1:length(legalSourcesLocation_list)) {
-  print(i)
-    pdf_text(paste("sources/", legalSourcesLocation_list[i], sep = "")) %>%
-    strsplit("\n") -> document_text
-  data.frame("source_file" = gsub(x = legalSourcesLocation_list[i], pattern = ".pdf", replacement = ""),
-    "text" = document_text, stringsAsFactors = FALSE) -> document
-  
-  colnames(document) <- c("source_file", "text")
-  legalCorpus_pdftools <- rbind(legalCorpus_pdftools, document)
-}
-
-
+# a quanteda corpus
+legalCorpus_quanteda <- corpus(legalTexts)
 
 ##### ###########################
 ##### WORD FREQUENCIES & COUNTS
@@ -173,8 +162,8 @@ legalBigrams_filteredCount <- legalBigrams_filteredCount %>%
 
 
 #### NOT USED ATM -  ok, unite() is the opposite of separate()
-#legalBigrams_united <- legalBigrams_filtered %>%
-#  unite(bigram, word1, word2, sep = " ")
+legalBigrams_united <- legalBigrams_filtered %>%
+  unite(bigram, word1, word2, sep = " ")
 
 #### NOT USED ATM - filter bigrams with a particular word
 #legalBigrams_filtered %>%
@@ -327,44 +316,47 @@ legal_kwic_resultsOutput <- legal_kwic_resultsOutput[, -c(2:7)]
 ## now set a variable for the english model (gonna use for POS tagging and whatnot)
 udmodel_eng <- udpipe_load_model(file = "english-ud-2.0-170801.udpipe")
 
+
 ##### LOOP THROUGH THE FILES, ANNOTATING EACH ONE AND OUTPUTTING TO A DATAFRAME #####
 # what the frick? shouldn't there be a much better way than doing that?
 # well, sure. But I was having all sorts of trouble getting any corpus object to
 # actually work (and to get any POS tagging function/package to work on this box)
 # so I'm looping through files 1 at a time them binding them into a df. It may not
 # be pretty, or efficient, but it works. I'll need to come back and make it better
-
 ### SET GLOBALS
 # make a list to add the results dataframes into
 legal_annotated_list <- list()
-# the list of files to be used for the annotator
-legalSourcesList <- list.files(path = legalSourcesLocation)
-# counter (I don't think I actually need this? Simply have to try the below without it and see. To do.)
+
 i = 1
 
-### LOOP START
 for (i in 1:length(legalSourcesList)) {
-# set the full path of an individual file within the list
   legalFile <- c(paste(legalSourcesLocation, legalSourcesList[i], sep = ""))
   txt <- pdf_text(legalFile)
-# annotate the file
   x = udpipe_annotate(udmodel_eng, x = txt)
   x = as.data.frame(x)
-# append the resultant dataframe
   legal_annotated_list[[i]] <- x
-# increment counter
   i <- i + 1
-### LOOP END
 }
-
-### MAKE FINAL DF FROM RESULTS LIST (it's large and slow, but works)
 legalAnnotated_pos <- do.call(rbind, legal_annotated_list)
 
+### Now we can get lists of different POS. Imma try to loop through this...
+POS_words <- c("VERB", "ADV", "NOUN", "PROPN", "ADJ")
+POS_topWords_list <- list() 
+
+for (word in POS_words) {
+  x = subset(legalAnnotated_pos, upos %in% word)
+  x = txt_freq(x$token)
+  x$key = factor(x$key, levels = rev(x$key))
+  x = head(x, 20)
+  POS_topWords_list[[word]] <- x
+}
+
+legalPOS_topWords <- do.call(rbind, POS_topWords_list)
+
+
 
 ##### ######################################################
-##### ######################################################
 ##### OUTPUTs TO FILE  ######################################
-##### ######################################################
 ##### ######################################################
 
 ## create the first file for output
@@ -393,7 +385,10 @@ cat("\n\n\n", "NOTE: Analyses are done with either all stop words removed (custo
   the 'common' words can play an integral role in those.\n\n")
 cat("\n\n\n", "Part of Speech counts for the corpus\n
     for a list of what these mean, see: http://universaldependencies.org/u/pos/index.html\n\n")
-table(legalAnnotated_pos$upos)
+txt_freq(legalAnnotated_pos$upos)
+cat("\n\n\n", "Top 20 Words for different Parts of Speech\n
+  (the categories shown here, and the # of each can be changed as desired\n\n")
+legalPOS_topWords
 cat("\n\n\n", "Top 50 Word Frequencies for the corpus (stop words removed)\n\n")
 legalFreqs[1:50,]
 cat("\n\n\n", "For Comparison: Top 50 Word Frequencies (common words included)\n\n")
@@ -479,3 +474,33 @@ legal_tfidf_high %>%
   facet_wrap(~DocName, ncol = 1, scales = "free") +
   coord_flip()
 
+# POS counts: we're using the lattice package (https://bnosac.github.io/udpipe/docs/doc5.html)
+legalPOS_counts <- txt_freq(legalAnnotated_pos$upos)
+legalPOS_counts$key <- factor(legalPOS_counts$key, levels = rev(legalPOS_counts$key))
+barchart(key ~ freq, data = legalPOS_counts, col = "cadetblue",
+          main = "POS Counts: Legal Corpus",
+          xlab = "Frequency")
+
+# POS: NOUN counts
+legalPOS_nouns <- subset(legalAnnotated_pos, upos %in% c("NOUN"))
+legalPOS_nouns <- txt_freq(legalPOS_nouns$token)
+legalPOS_nouns$key <- factor(legalPOS_nouns$key, levels = rev(legalPOS_nouns$key))
+barchart(key ~ freq, data = head(legalPOS_nouns, 20), col = "cadetblue",
+          main = "Top 20 Nouns: Legal Corpus",
+          xlab = "Frequency")
+
+# POS: Verb counts
+legalPOS_verbs <- subset(legalAnnotated_pos, upos %in% c("VERB"))
+legalPOS_verbs <- txt_freq(legalPOS_verbs$token)
+legalPOS_verbs$key <- factor(legalPOS_verbs$key, levels = rev(legalPOS_verbs$key))
+barchart(key ~ freq, data = head(legalPOS_verbs, 20), col = "cadetblue",
+          main = "Top 20 Verbs: Legal Corpus",
+          xlab = "Frequency")
+
+# POS: Adjective counts
+legalPOS_adj <- subset(legalAnnotated_pos, upos %in% c("ADJ"))
+legalPOS_adj <- txt_freq(legalPOS_adj$token)
+legalPOS_adj$key <- factor(legalPOS_adj$key, levels = rev(legalPOS_adj$key))
+barchart(key ~ freq, data = head(legalPOS_adj, 20), col = "cadetblue",
+          main = "Top 20 Adjectives: Legal Corpus",
+          xlab = "Frequency")
