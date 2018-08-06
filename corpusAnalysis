@@ -1,3 +1,6 @@
+##### OK, SO THIS IS BECOMING MESSY & NEEDS A GOOD RESTRUCTURE
+##### HAPPENING THIS WEEK (beginning 6 AUG, 2018)
+
 ##### ########################################################
 #####               CORPUS ANALYSIS                     ######
 #####         - it's a work in progress -               ######
@@ -21,6 +24,8 @@ library(quanteda)
 library(udpipe)
 library(pdftools)
 library(lattice)
+library(igraph)
+library(ggraph)
 
 ##### ######################################
 ##### Let's do the pre-lim stuff..
@@ -65,21 +70,21 @@ stopwords_all <- bind_rows(default_stopwords, legalStopwords)
 ### We'll create 3 versions in tidy format - all words, no custom stops, & no all stops
 
 # 1st TIDY is the corpus in tidy format, with no words removed
-legalTidy_all <- legalTexts %>%
+legalTidy_allWords <- legalTexts %>%
   group_by(DocName) %>%
   mutate(linenumber = row_number()) %>%
   ungroup() %>%
   unnest_tokens(word, text)  # word is the name of the output column
 
 # 2nd TIDY is the corpus in tidy format, with custom words removed
-legalTidy_noCustom <- legalTidy_all %>%
+legalTidy_noCustom <- legalTidy_allWords %>%
   anti_join(legalStopwords, by = "word")
 
 # 3rd TIDY is the corpus in tidy format, with all stops removed (custom + general)
-legalTidy <- legalTidy_all %>%
+legalTidy_noStops <- legalTidy_allWords %>%
   anti_join(stopwords_all, by = "word")
 
-# a quanteda corpus
+# a quanteda corpus (all words)
 legalCorpus_quanteda <- corpus(legalTexts)
 
 ##### ###########################
@@ -91,8 +96,8 @@ legalDocCount <- legalTexts %>%
   count(DocName) %>%
   summarize(total = sum(n))
 
-## then get the top word freqs (no stops) & make it a DF so we can choose how many rows
-legalFreqs <- count(legalTidy, word, sort = TRUE) %>%
+## then get the top word freqs (stopwords removed) & make it a DF so we can choose how many rows
+legalFreqs <- count(legalTidy_noStops, word, sort = TRUE) %>%
                 ungroup() %>%
                 data.frame()
 
@@ -102,7 +107,7 @@ legalFreqs_noCustom <- count(legalTidy_noCustom, word, sort = TRUE) %>%
                           data.frame()
 
 # and a freq count of words by document ##### CLEAN THIS UP WITH PIPING #####
-legalFreqs_bydoc <- legalTidy %>%
+legalFreqs_bydoc <- legalTidy_noStops %>%
   count(DocName, word, sort = TRUE)
 
 legalWordCountByDoc <- legalFreqs_bydoc %>%
@@ -124,7 +129,7 @@ legalFreqs_bydoc2 <- left_join(legalFreqs_bydoc, legalWordCountByDoc)
 ##### BIGRAMS, BABY
 ##### ###############
 
-## let's tokenise the entire corpus into bigrams (no stops)
+## let's tokenise the entire corpus into bigrams (all words)
 legalBigrams_all <- legalTexts %>%
   unnest_tokens(bigram, text, token = "ngrams", n = 2)
 
@@ -277,7 +282,6 @@ legalTrigrams_tfidf <- legalTexts %>%
 ##### #############################
 
 #### Function to loop through kwic based on highest tf-idf tokens, output to list then bind
-
 legal_kwic_list <- list()
 i = 1
 while (i <= 10) {
@@ -287,20 +291,20 @@ while (i <= 10) {
   legal_kwic_list[[i]] <- kwic_results
   i <- i +1
 }
-
 legal_kwic_results <- do.call(rbind, legal_kwic_list)
 
 # we can clean up the kwic results for printing by combining the kwic sentences & trim the df...
 legal_kwic_resultsOutput <- data.frame(legal_kwic_results)
 
-legal_kwic_resultsOutput$sentences <- paste(legal_kwic_results$pre, legal_kwic_results$keyword,       
-                                        legal_kwic_results$post)
+legal_kwic_resultsOutput$sentences <- paste(legal_kwic_results$pre,
+                                              " | ",
+                                              legal_kwic_results$keyword,
+                                              " | ",
+                                              legal_kwic_results$post)
 
 legal_kwic_resultsOutput$docname <- substr(legal_kwic_resultsOutput$docname, 1, 20)
 
-legal_kwic_resultsOutput <- legal_kwic_resultsOutput[, -c(2:7)]
-
-
+legal_kwic_resultsOutput <- legal_kwic_resultsOutput[, -c(2:4, 6:7)]
 
 
 ##### ###########################################
@@ -326,9 +330,7 @@ udmodel_eng <- udpipe_load_model(file = "english-ud-2.0-170801.udpipe")
 ### SET GLOBALS
 # make a list to add the results dataframes into
 legal_annotated_list <- list()
-
 i = 1
-
 for (i in 1:length(legalSourcesList)) {
   legalFile <- c(paste(legalSourcesLocation, legalSourcesList[i], sep = ""))
   txt <- pdf_text(legalFile)
@@ -369,15 +371,15 @@ cat("\n\n\n", "Number of documents in the corpus\n\n")
 legalDocCount
 cat("\n\n\n", "Word Count for the Corpus - no word filtering\n\n",
   "this is the complete word count, and includes abbreviations, symbols, etc\n\n")
-count(legalTidy_all)
+count(legalTidy_allWords)
 cat("\n\n\n", "Word Count - custom stop words removed\n",
   "unhelpful words are removed, such as abbreviations, symbols, country names, etc\n\n")
 count(legalTidy_noCustom)
 cat("\n\n\n", "Word Count - custom and common words removed\n\n",
   "common words are also removed, such as articles, prepositions, and pronouns\n\n")
-count(legalTidy)
+count(legalTidy_noStops)
 cat("\n\n\n", "Sum of custom and common words that can be removed\n\n")
-count(legalTidy_all) - count(legalTidy)
+count(legalTidy_allWords) - count(legalTidy_noStops)
 cat("\n\n\n", "NOTE: Analyses are done with either all stop words removed (custom & common), or\n
   with only the custom removed, depending on what the end goal is. E.g. Top 50 frequencies\n
   have both removed, because we want to see the most important words for the corpus/industry,\n
@@ -428,11 +430,10 @@ write.table(legal_kwic_resultsOutput, file = legalOutputs_kwic, col.names = FALS
 
 #first, let's look at word count by doc
 plot_wordCount_Type <- summary(legalCorpus_quanteda)
-
 ggplot(data = plot_wordCount_Type, aes(x = Type, y = Tokens, group = 1)) +
 geom_line() +
 geom_point() +
-theme_bw()
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 # top word freqs by doc (bin sets the # words)
 ggplot(legalFreqs_bydoc2, aes(n/total, fill = DocName)) +
@@ -474,6 +475,9 @@ legal_tfidf_high %>%
   facet_wrap(~DocName, ncol = 1, scales = "free") +
   coord_flip()
 
+
+##### UDPIPE POS PLOTS #####
+
 # POS counts: we're using the lattice package (https://bnosac.github.io/udpipe/docs/doc5.html)
 legalPOS_counts <- txt_freq(legalAnnotated_pos$upos)
 legalPOS_counts$key <- factor(legalPOS_counts$key, levels = rev(legalPOS_counts$key))
@@ -504,3 +508,34 @@ legalPOS_adj$key <- factor(legalPOS_adj$key, levels = rev(legalPOS_adj$key))
 barchart(key ~ freq, data = head(legalPOS_adj, 20), col = "cadetblue",
           main = "Top 20 Adjectives: Legal Corpus",
           xlab = "Frequency")
+
+
+### Noun Phrases
+legalAnnotated_pos$word <- tolower(legalAnnotated_pos$token)
+legalAnnotated_pos$phrase_tag <- as_phrasemachine(legalAnnotated_pos$upos, type = "upos")
+legalNounPhrases <- keywords_phrases(x = legalAnnotated_pos$phrase_tag,
+                                      term = legalAnnotated_pos$word,
+                                      pattern = "(A|N)*N(P+D*(A|N)*N)*",
+                                      is_regex = TRUE,
+                                      detailed = FALSE)
+legalNounPhrases <- subset(legalNounPhrases, ngram > 1 & freq > 3)
+legalNounPhrases$key <- factor(legalNounPhrases$keyword, levels = rev(legalNounPhrases$keyword))
+barchart(key ~ freq, data = head(legalNounPhrases, 20), col = "cadetblue",
+          main = "Top Noun Phrases: Legal Corpus", xlab = "Frequency")
+
+
+### Co-occurrences Nouns-Adjectives in the same sentence
+legalCooc_N_ADJ <- cooccurrence(x = subset(legalAnnotated_pos,
+                                  upos %in% c("NOUN", "ADJ")),
+                                  term = "lemma",
+                                  group = c("doc_id", "paragraph_id", "sentence_id"))
+legalWordNetwork_N_ADJ <- head(legalCooc_N_ADJ, 50)
+legalWordNetwork_N_ADJ <- graph_from_data_frame(legalWordNetwork_N_ADJ)
+ggraph(legalWordNetwork_N_ADJ, layout = "fr") +
+  geom_edge_link(aes(width = length(legalCooc_N_ADJ), edge_alpha = length(legalCooc_N_ADJ)),
+    edge_colour = "pink") +
+  geom_node_text(aes(label = name), col = "darkgreen", size = 4) +
+  theme_graph(base_family = "Arial Narrow") +
+  theme(legend.position = "none") +
+  labs(title = "Legal Corpus: Top co-occurrences within sentences",
+        subtitle = "Nouns and Adjectives")
