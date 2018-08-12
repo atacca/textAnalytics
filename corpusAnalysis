@@ -17,12 +17,13 @@ library(magrittr)
 library(broom)
 library(tokenizers)
 library(quanteda)
-# library(data.table)
 library(udpipe)
 library(pdftools)
 library(lattice)
 library(igraph)
 library(ggraph)
+library(openxlsx)
+library(reshape2)
 
 ##### ######################################
 ##### Let's do the pre-lim stuff..
@@ -66,34 +67,75 @@ legalTidy_allWords <- legalTexts %>%
   ungroup() %>%
   unnest_tokens(word, text)  # word is the name of the output column
 
-# 2nd is the corpus in tidy format, with custom words removed
-legalTidy_noCustom <- legalTidy_allWords %>%
+#2nd is the corpus in tidy format, with the default stops removed
+legalTidy_noDefaultStops <- legalTidy_allWords %>%
+  anti_join(default_stopwords, by = "word")
+
+# 3rd is the corpus in tidy format, with custom words removed
+legalTidy_noCustomStops <- legalTidy_allWords %>%
   anti_join(legalStopwords, by = "word")
 
-# 3rd is the corpus in tidy format, with all stops removed (custom + general)
+# 4th is the corpus in tidy format, with all stops removed (custom + general)
 legalTidy_noStops <- legalTidy_allWords %>%
   anti_join(stopwords_all, by = "word")
 
-# a quanteda corpus (all words)
+# 5th is a quanteda corpus (all words)
 legalCorpus_quanteda <- corpus(legalTexts)
 
 
-##### ###########################
-##### COUNTS & WORD FREQUENCIES
-##### ###########################
+##### #########
+##### COUNTS
+##### #########
 
-## Let's start with a count of the documents in the corpus
+## document count
 legalDocCount <- legalTexts %>%
   count(DocName) %>%
   summarize(total = sum(n))
+colnames(legalDocCount) <- paste("Document Count")
 
-## then get the top word freqs (stopwords removed) & make it a DF so we can choose how many rows
+## corpus word count - all words
+legalCorpusCount_allWords <- count(legalTidy_allWords) %>%
+  data.frame()
+colnames(legalCorpusCount_allWords) <- paste("Word Count - all words")
+
+## corpus word count - all stops removed (default + custom)
+legalCorpusCount_noStops <- count(legalTidy_noStops) %>%
+  data.frame()
+colnames(legalCorpusCount_noStops) <- paste("Word Count - all stopwords removed")
+
+## corpus word count - default stops removed
+legalCorpusCount_noDefaultStops <- count(legalTidy_noDefaultStops) %>%
+  data.frame()
+colnames(legalCorpusCount_noDefaultStops) <- paste("Word Count - only default stops removed")
+
+## corpus word count - custom stops removed
+legalCorpusCount_noCustomStops <- count(legalTidy_noCustomStops) %>%
+  data.frame()
+colnames(legalCorpusCount_noCustomStops) <- paste("Word Count - only custom stops removed")
+
+## sum of default stops plus custom stops
+legalCorpusCount_sumAllStops <- count(legalTidy_allWords) - count(legalTidy_noStops) %>%
+  data.frame()
+colnames(legalCorpusCount_sumAllStops) <- paste("Sum of default and custom stopwords")
+
+
+##### ###########################
+##### WORD FREQUENCIES
+##### ###########################
+
+
+## let's get the top word freqs (stops removed) & make it a DF so we can choose how many rows
 legalFreqs <- count(legalTidy_noStops, word, sort = TRUE) %>%
                 ungroup() %>%
                 data.frame()
 
+# we'll do a version with the default words removed. This will help choose the custom stops
+legalFreqs_noDefault <- count(legalTidy_noDefaultStops, word, sort = TRUE) %>%
+                          ungroup() %>%
+                          data.frame()
+
 # and with just the custom words removed
-legalFreqs_noCustom <- count(legalTidy_noCustom, word, sort = TRUE) %>%
+legalFreqs_noCustom <- count(legalTidy_noCustomStops, word, sort = TRUE) %>%
                           ungroup() %>%
                           data.frame()
 
@@ -241,7 +283,8 @@ for (i in 1:length(legalSourcesList)) {
 legalAnnotated_pos <- do.call(rbind, legal_annotated_list)
 
 ### Now we can get lists of different POS. Imma try to loop through this...
-POS_words <- c("VERB", "ADV", "NOUN", "PROPN", "ADJ")
+POS_words <- c("NOUN", "PROPN", "PRON", "ADJ", "VERB", "ADV", "AUX",
+                "ADP", "DET", "CCONJ", "SCONJ", "INTJ")
 POS_topWords_list <- list() 
 
 for (word in POS_words) {
@@ -313,73 +356,62 @@ legal_kwic_freqsOutput <- legal_kwic_freqsOutput[, -c(2:4, 6:7)]
 
 
 
-##### #############################################################################
-##### OUTPUTS TO FILE - 4 FILES (Basic Stats, Top Ngrams, KWIC_tfidf, KWIC_freqs)
-##### #############################################################################
+##### #################################################
+##### OUTPUT TO SPREADSHEET (using openxlsx)
+##### 1st, create any vars that aren't already above,
+##### then write each one to the spreadsheet
+##### #################################################
 
-### 1: Basic Statistics ###
-legalOutputs_stats <- file("outputs/legalEnglishCorpus_statistics.txt", open = "w")
+## COUNTS - Make a combined df of the counts from the COUNT section
+legalCorpusCounts_CombinedCounts <- cbind(legalDocCount,
+                                          legalCorpusCount_allWords,
+                                          legalCorpusCount_noStops,
+                                          legalCorpusCount_noDefaultStops,
+                                          legalCorpusCount_noCustomStops,
+                                          legalCorpusCount_sumAllStops) %>%
+                                    melt(variable.name = "Object",
+                                      value.name = "Count")
 
-sink(file = legalOutputs_stats, type = "output")
-cat("Basic Statistics for the Legal English Corpus\n\n\n")
-cat("Document Count\n")
-legalDocCount
-cat("\n\n\n", "Word Count for the Corpus - no word filtering\n",
-  "this is the complete word count, and includes abbreviations, symbols, etc\n\n")
-count(legalTidy_allWords)
-cat("\n\n\n", "Word Count - custom stop words removed\n",
-  "unhelpful words are removed, such as abbreviations, symbols, country names, etc\n\n")
-count(legalTidy_noCustom)
-cat("\n\n\n", "Word Count - custom and common words removed\n\n",
-  "common words are also removed, such as articles, prepositions, and pronouns\n\n")
-count(legalTidy_noStops)
-cat("\n\n\n", "Sum of custom and common words that can be removed\n\n")
-count(legalTidy_allWords) - count(legalTidy_noStops)
-cat("\n\n\n", "NOTE: Analyses are done with either all stop words removed (custom & common), or\n
-  with only the custom removed, depending on what the end goal is. E.g. Top 50 frequencies\n
-  have both removed, because we want to see the most important words for the corpus/industry,\n
-  while top bigrams, trigrams, and longer language only have custom words removed, because\n
-  the 'common' words can play an integral role in those.\n\n\n")
-cat("\n\n\n", "Part of Speech counts for the corpus\n
-    for a list of what these mean, see: http://universaldependencies.org/u/pos/index.html\n\n")
-txt_freq(legalAnnotated_pos$upos)
-sink()
+## COUNTS - this is a count of the different POSs
+legalPOSCounts <- txt_freq(legalAnnotated_pos$upos)
 
-### 2: Top Ngrams ###
-legalOutputs_ngrams <- file("outputs/legalEnglishCorpus_topNgrams.txt", open = "w")
 
-sink(file = legalOutputs_ngrams, type = "output")
-cat("\n\n\n", "Top 20 Words for different Parts of Speech\n
-  (the categories shown here, and the # of each can be changed as desired\n\n")
-legalPOS_topWords
-cat("\n\n\n", "Top 50 Word Frequencies for the corpus (stop words removed)\n\n")
-legalFreqs[1:50,]
-cat("\n\n\n", "For Comparison: Top 50 Word Frequencies (common words included)\n\n")
-legalFreqs_noCustom[1:50,]
-cat("\n\n\n", "Top Bigrams (no filtering)\n\n")
-legalBigrams_count[1:50,]
-cat("\n\n\n", "Top Trigrams (no filtering)\n\n")
-legalTrigrams_count[1:50,]
-cat("\n\n\n", "Top 50 Highest Scoring Words by tf-idf\n\n
-  In the below table:\n
-  \t - \t'n'\t is the number of times the word appears in the listed document.\n
-  \t - \t'tf'\t is the term frequency score, giving a relative weighting within the document.\n
-  \t - \t'idf'\t is the inverse document freq. Relates to how common a word is in a corpus.\n
-  \t - \t'tf-idf'\t combines them. High tf with a low idf means the word is more specific.\n\n")
-legal_tfidf_high[1:50,]
-cat("\n\n\n", "Top 30 Bigrams by tf-idf\n\n")
-head(legalBigrams_tfidf, 30)
-cat("\n\n\n", "Top 30 Trigrams by tf-idf\n\n")
-head(legalTrigrams_tfidf, 30)
-sink()
+### CREATE THE WORKBOOK ###
+legal_wb <- createWorkbook()
 
-### 3: Top KWIC (tfidf) sentences ###
-legalOutputs_kwic <- file("outputs/legalEnglishCorpus_KWICtfidf.txt", open = "w")
+### create a worksheet for each data element and populate
+addWorksheet(legal_wb, "doc & word counts") 
+writeData(legal_wb, "doc & word counts", legalCorpusCounts_CombinedCounts) 
 
-write.table(legal_kwic_tfidfOutput, file = legalOutputs_kwic, col.names = FALSE)
+addWorksheet(legal_wb, "POS counts")
+writeData(legal_wb, "POS counts", legalPOSCounts)
 
-### 4: Top KWIC (most frequent words) sentences ###
-legalOutputs_kwic <- file("outputs/legalEnglishCorpus_KWICfreqs.txt", open = "w")
+addWorksheet(legal_wb, "Top 20 POSs")
+writeData(legal_wb, "Top 20 POSs", legalPOS_topWords, rowNames = TRUE)
 
-write.table(legal_kwic_freqsOutput, file = legalOutputs_kwic, col.names = FALSE)
+addWorksheet(legal_wb, "Top 200 words")
+writeData(legal_wb, "Top 200 words", legalFreqs[1:200,])
 
+addWorksheet(legal_wb, "Top 75 bigrams")
+writeData(legal_wb, "Top 75 bigrams", legalBigrams_count[1:75,])
+
+addWorksheet(legal_wb, "Top 75 trigrams")
+writeData(legal_wb, "Top 75 trigrams", legalTrigrams_count[1:75,])
+
+addWorksheet(legal_wb, "KWIC - Top 20 words")
+writeData(legal_wb, "KWIC - Top 20 words", legal_kwic_freqsOutput)
+
+addWorksheet(legal_wb, "KWIC - Top tf-idf words")
+writeData(legal_wb, "KWIC - Top tf-idf words", legal_kwic_tfidfOutput)
+
+addWorksheet(legal_wb, "Top 100 tf-idf words")
+writeData(legal_wb, "Top 100 tf-idf words", legal_tfidf_high[1:100,])
+
+addWorksheet(legal_wb, "Top 75 tf-idf bigrams")
+writeData(legal_wb, "Top 75 tf-idf bigrams", legalBigrams_tfidf[1:75,])
+
+addWorksheet(legal_wb, "Top 75 tf-idf trigrams")
+writeData(legal_wb, "Top 75 tf-idf trigrams", legalTrigrams_tfidf[1:75,])
+
+## finally, save the workbook
+saveWorkbook(legal_wb, file = "outputs/legalOututs.xlsx", overwrite = TRUE)
