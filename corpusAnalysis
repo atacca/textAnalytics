@@ -231,14 +231,27 @@ legalZipf <- legalFreqs_bydoc2 %>%
 legal_tfidf <- legalFreqs_bydoc2 %>%
   bind_tf_idf(word, DocName, n)
 
-# and look at the unigrams with a high score & trim the document names
+### HIGH TF-IDF SCORES - EXPLORATORY LOOK###
+
+## This is to get the tf-idf scores
 legal_tfidf_high <- legal_tfidf %>%
   select(-Doc_totalWords) %>%
   arrange(desc(tf_idf)) %>%
   data.frame() 
 legal_tfidf_high$DocName <- substr(legal_tfidf_high$DocName, 1, 30)
 
-# moving on to bigrams now. Let's start with the top ones (1st unite the bigrams back together)
+# now, for my purposes, I'm not interested in tokens where range=1, so I'll add a range count,
+# filter for range, remove duplicates, and get rid of doc names
+legal_tfidf_high_filtered <- legal_tfidf_high %>%
+  group_by(word) %>%
+  mutate(doc_range = sum(n())) %>%
+  filter(doc_range > 1)
+legal_tfidf_high_filtered <-
+  data.frame(legal_tfidf_high_filtered[!duplicated(legal_tfidf_high_filtered$word),])
+legal_tfidf_high_filtered <- legal_tfidf_high_filtered[, 2:7]
+
+
+## moving on to bigrams now. This 1st one is for reference
 legalBigrams_tfidf <- legalBigrams_filtered %>%
   unite(bigram, word1, word2, sep = " ") %>%
   count(DocName, bigram) %>%
@@ -246,7 +259,16 @@ legalBigrams_tfidf <- legalBigrams_filtered %>%
   arrange(desc(tf_idf)) %>%
   data.frame()
 
-# ok, now the top trigrams
+# this is the filtered version. We'll add a range count, filter for > 1. Then remove doc names/dups
+legalBigrams_tfidf_filtered <- legalBigrams_tfidf %>%
+  group_by(bigram) %>%
+  mutate(doc_range = sum(n())) %>%
+  filter(doc_range > 1)
+legalBigrams_tfidf_filtered <- legalBigrams_tfidf_filtered[, 2:7]
+legalBigrams_tfidf_filtered <-
+  data.frame(legalBigrams_tfidf_filtered[!duplicated(legalBigrams_tfidf_filtered$bigram),])
+
+## ok, now the trigrams. this is the reference version
 legalTrigrams_tfidf <- legalTrigrams_filtered %>%
   unite(trigram, word1, word2, word3, sep = " ") %>%
   count(DocName, trigram) %>%
@@ -254,6 +276,35 @@ legalTrigrams_tfidf <- legalTrigrams_filtered %>%
   arrange(desc(tf_idf)) %>%
   data.frame()
 
+# and now the filtered version. Same process as the bigrams
+legalTrigrams_tfidf_filtered <- legalTrigrams_tfidf %>%
+  group_by(trigram) %>%
+  mutate(doc_range = sum(n())) %>%
+  filter(doc_range > 1)
+legalTrigrams_tfidf_filtered <- legalTrigrams_tfidf_filtered[, 2:7]
+legalTrigrams_tfidf_filtered <-
+  data.frame(legalTrigrams_tfidf_filtered[!duplicated(legalTrigrams_tfidf_filtered$trigram),])
+
+
+
+### LOW TF-IDF SCORES - EXPLORATORY LOOK ###
+
+## start with unigrams - looking for the lowest, but filtered: [1] (n > 50), [2] bottom quantile
+## of the filtered results, [3] sorted by doc range, and [4] duplicates removed (because there's
+## an entry for a word against each document it appears in)
+legal_tfidf_low <- data.frame(legal_tfidf_high) %>%
+  arrange(tf_idf) %>%
+  filter(n >= 50) %>%
+  filter(tf_idf <= quantile(tf_idf, 0.25))
+legal_tfidf_low <- legal_tfidf_low %>%
+  group_by(word) %>%
+  mutate(doc_range = sum(n())) %>%
+  arrange(desc(doc_range)) %>%
+  filter(doc_range >1)
+legal_tfidf_low <- legal_tfidf_low[, 2:7]
+legal_tfidf_low <- data.frame(legal_tfidf_low[!duplicated(legal_tfidf_low$word),])
+
+  
 
 ##### ###########################################
 ##### DID SOMEONE SAY POS? that's just rude..
@@ -305,7 +356,7 @@ legalPOS_topWords <- do.call(rbind, POS_topWords_list)
 legal_kwic_list_tfidf <- list()
 i = 1
 while (i <= 10) {
-  kwic_results <- kwic(legalCorpus_quanteda, legal_tfidf_high$word[i], window = 10,
+  kwic_results <- kwic(legalCorpus_quanteda, legal_tfidf_high_filtered$word[i], window = 10,
     valuetype = "glob", case_insensitive = TRUE)
   kwic_results$i <- i
   
@@ -401,17 +452,17 @@ writeData(legal_wb, "Top 75 trigrams", legalTrigrams_count[1:75,])
 addWorksheet(legal_wb, "KWIC - Top 20 words")
 writeData(legal_wb, "KWIC - Top 20 words", legal_kwic_freqsOutput)
 
-addWorksheet(legal_wb, "KWIC - Top tf-idf words")
-writeData(legal_wb, "KWIC - Top tf-idf words", legal_kwic_tfidfOutput)
+addWorksheet(legal_wb, "KWIC - Top* tf-idf words")
+writeData(legal_wb, "KWIC - Top* tf-idf words", legal_kwic_tfidfOutput)
 
-addWorksheet(legal_wb, "Top 100 tf-idf words")
-writeData(legal_wb, "Top 100 tf-idf words", legal_tfidf_high[1:100,])
+addWorksheet(legal_wb, "Top 100* tf-idf words")
+writeData(legal_wb, "Top 100* tf-idf words", legal_tfidf_high_filtered[1:100,])
 
-addWorksheet(legal_wb, "Top 75 tf-idf bigrams")
-writeData(legal_wb, "Top 75 tf-idf bigrams", legalBigrams_tfidf[1:75,])
+addWorksheet(legal_wb, "Top 75* tf-idf bigrams")
+writeData(legal_wb, "Top 75* tf-idf bigrams", legalBigrams_tfidf_filtered[1:75,])
 
-addWorksheet(legal_wb, "Top 75 tf-idf trigrams")
-writeData(legal_wb, "Top 75 tf-idf trigrams", legalTrigrams_tfidf[1:75,])
+addWorksheet(legal_wb, "Top 75* tf-idf trigrams")
+writeData(legal_wb, "Top 75* tf-idf trigrams", legalTrigrams_tfidf_filtered[1:75,])
 
 ## finally, save the workbook
 saveWorkbook(legal_wb, file = "outputs/legalOututs.xlsx", overwrite = TRUE)
