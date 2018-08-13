@@ -25,6 +25,7 @@ library(ggraph)
 library(openxlsx)
 library(reshape2)
 
+
 ##### ######################################
 ##### Let's do the pre-lim stuff..
 ##### ######################################
@@ -123,7 +124,6 @@ colnames(legalCorpusCount_sumAllStops) <- paste("Sum of default and custom stopw
 ##### WORD FREQUENCIES
 ##### ###########################
 
-
 ## let's get the top word freqs (stops removed) & make it a DF so we can choose how many rows
 legalFreqs <- count(legalTidy_noStops, word, sort = TRUE) %>%
                 ungroup() %>%
@@ -183,7 +183,7 @@ legalBigrams_filtered2 <- legalBigrams_filtered2 %>%
 
 
 ##### ##################
-##### IT's TRIGRAM TIME
+##### IT'S TRIGRAM TIME
 ##### ##################
 
 ## same as bigrams, let's tokenise the entire corpus into trigrams (no stops)
@@ -231,6 +231,7 @@ legalZipf <- legalFreqs_bydoc2 %>%
 legal_tfidf <- legalFreqs_bydoc2 %>%
   bind_tf_idf(word, DocName, n)
 
+
 ### HIGH TF-IDF SCORES - EXPLORATORY LOOK###
 
 ## This is to get the tf-idf scores
@@ -249,7 +250,6 @@ legal_tfidf_high_filtered <- legal_tfidf_high %>%
 legal_tfidf_high_filtered <-
   data.frame(legal_tfidf_high_filtered[!duplicated(legal_tfidf_high_filtered$word),])
 legal_tfidf_high_filtered <- legal_tfidf_high_filtered[, 2:7]
-
 
 ## moving on to bigrams now. This 1st one is for reference
 legalBigrams_tfidf <- legalBigrams_filtered %>%
@@ -284,8 +284,7 @@ legalTrigrams_tfidf_filtered <- legalTrigrams_tfidf %>%
 legalTrigrams_tfidf_filtered <- legalTrigrams_tfidf_filtered[, 2:7]
 legalTrigrams_tfidf_filtered <-
   data.frame(legalTrigrams_tfidf_filtered[!duplicated(legalTrigrams_tfidf_filtered$trigram),])
-
-
+  
 
 ### LOW TF-IDF SCORES - EXPLORATORY LOOK ###
 
@@ -303,7 +302,6 @@ legal_tfidf_low <- legal_tfidf_low %>%
   filter(doc_range >1)
 legal_tfidf_low <- legal_tfidf_low[, 2:7]
 legal_tfidf_low <- data.frame(legal_tfidf_low[!duplicated(legal_tfidf_low$word),])
-
   
 
 ##### ###########################################
@@ -406,7 +404,6 @@ legal_kwic_freqsOutput$docname <- substr(legal_kwic_freqsOutput$docname, 1, 20)
 legal_kwic_freqsOutput <- legal_kwic_freqsOutput[, -c(2:4, 6:7)]
 
 
-
 ##### #################################################
 ##### OUTPUT TO SPREADSHEET (using openxlsx)
 ##### 1st, create any vars that aren't already above,
@@ -466,3 +463,54 @@ writeData(legal_wb, "Top 75* tf-idf trigrams", legalTrigrams_tfidf_filtered[1:75
 
 ## finally, save the workbook
 saveWorkbook(legal_wb, file = "outputs/legalOututs.xlsx", overwrite = TRUE)
+
+
+##### ########################################################################
+##### PLOTS
+##### you'll see some factor() funkiness, that's for keeping order
+##### also, I'm breaking tradition and simplifying names to keep it shorter
+##### ########################################################################
+
+### COUNTS ###
+
+## count of Tokens per document type
+plot_CorpusWordCounts <- summary(legalCorpus_quanteda)
+ggplot(data = plot_CorpusWordCounts, aes(x = Type, y = Tokens, group = 1)) +
+  geom_line() +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+## count of tokens by country
+ggplot(data = plot_CorpusWordCounts, aes(x = Country, y = Tokens, group = 1)) +
+  geom_line() +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+### TF-IDF PLOTS ###
+
+## Top 50 highest tf-idf words (remember, they're filtered)
+tfidf_high <- legal_tfidf_high_filtered[1:50, c("word", "tf_idf")]
+tfidf_high$word <- factor(tfidf_high$word, levels = tfidf_high$word[order(tfidf_high$tf_idf)])
+ggplot(data = tfidf_high, aes(x = word, y = tf_idf, group = 1)) +
+  geom_line() +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+## Top 50 highest tf-idf bigrams (yeah, filtered...)
+tfidfBigrams_high <- legalBigrams_tfidf_filtered[1:50, c("bigram", "tf_idf")]
+tfidfBigrams_high$bigram <- factor(tfidfBigrams_high$bigram,
+                              levels = tfidfBigrams_high$bigram[order(tfidfBigrams_high$tf_idf)])
+ggplot(data = tfidfBigrams_high, aes(x = bigram, y = tf_idf, group = 1)) +
+  geom_line() +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+## Top 50 tf-idf trigrams. You know the drill...
+tfidfTrigrams_high <- legalTrigrams_tfidf_filtered[1:50, c("trigram", "tf_idf")]
+tfidfTrigrams_high$trigram <- factor(tfidfTrigrams_high$trigram,
+                                levels = tfidfTrigrams_high$trigram[order(tfidfTrigrams_high$tf_idf)])
+ggplot(data = tfidfTrigrams_high, aes(x = trigram, y = tf_idf, group = 1)) +
+  geom_line() +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
