@@ -473,19 +473,20 @@ saveWorkbook(legal_wb, file = "outputs/legalOututs.xlsx", overwrite = TRUE)
 
 ### COUNTS ###
 
-## count of Tokens per document type
+## first, we'll set up the var that the next plots will reference
 plot_CorpusWordCounts <- summary(legalCorpus_quanteda)
+
+# count of Tokens per document type
 ggplot(data = plot_CorpusWordCounts, aes(x = Type, y = Tokens, group = 1)) +
   geom_line() +
   geom_point() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-## count of tokens by country
+# count of tokens by country
 ggplot(data = plot_CorpusWordCounts, aes(x = Country, y = Tokens, group = 1)) +
   geom_line() +
   geom_point() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
 
 ### TF-IDF PLOTS ###
 
